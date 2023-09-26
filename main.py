@@ -36,7 +36,7 @@ def main() -> None:
     # gsheets_service = build('sheets', 'v4', credentials=credentials)
 
     GOOGLE_SHEETS_CONFIG = json.loads(os.environ['GOOGLE_SHEETS_CONFIG'])
-    sheet_id = GOOGLE_SHEETS_CONFIG['GOOGLE_SHEETS_CONFIG'][0][id]
+    sheet_id = GOOGLE_SHEETS_CONFIG['google_sheets_files_metadata'][0]['id']
     
     with build('sheets', 'v4', credentials=credentials) as gsheets_service:
         page_titles = [(page['properties']['sheetId'], page['properties']['title'])
