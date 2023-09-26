@@ -2,10 +2,9 @@ import os
 import logging
 from dotenv import load_dotenv
 
-import functions_framework
-from cloudevents.http.event import CloudEvent
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
+import google.cloud.logging
 
 from etl.google_sheets.google_sheets_extractor import GoogleSheetsExtractor
 from etl.google_sheets.google_sheets import GoogleSheetsFileBatch
@@ -20,6 +19,8 @@ def main() -> None:
 
     logging.basicConfig(level=logging.INFO,
                         format='%(levelname)s - %(asctime)s - %(message)s')
+    client = google.cloud.logging.Client()
+    client.setup_logging()
 
     logging.info(f'main - Execution started at {start}')
 
