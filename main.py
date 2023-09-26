@@ -24,42 +24,46 @@ def main() -> None:
 
     logging.info(f'main - Execution started at {start}')
 
-    CREDENTIALS_FILE = 'data-campus-393820-49e0dec8ba65.json'
-    # CREDENTIALS_FILE = 'forms-etl-test.json'
+    try:
 
-    credentials = service_account.Credentials.from_service_account_file(
-        CREDENTIALS_FILE)
-    
-    # with build('compute', 'v1', credentials=credentials) as compute:
-    #     res = compute.instances().start(project='data-campus-393820', zone='us-central1-a', instance='forms-etl-test').execute()
-    #     print(res)
-    # gsheets_service = build('sheets', 'v4', credentials=credentials)
+        CREDENTIALS_FILE = 'data-campus-393820-49e0dec8ba65.json'
+        # CREDENTIALS_FILE = 'forms-etl-test.json'
 
-    GOOGLE_SHEETS_CONFIG = json.loads(os.environ['GOOGLE_SHEETS_CONFIG'])
-    sheet_id = GOOGLE_SHEETS_CONFIG['google_sheets_files_metadata'][0]['id']
-    
-    with build('sheets', 'v4', credentials=credentials) as gsheets_service:
-        page_titles = [(page['properties']['sheetId'], page['properties']['title'])
-                        for page
-                        in gsheets_service.spreadsheets()
-                        .get(spreadsheetId=sheet_id)
-                        .execute()['sheets']]
+        credentials = service_account.Credentials.from_service_account_file(
+            CREDENTIALS_FILE)
         
-        print(page_titles)
+        # with build('compute', 'v1', credentials=credentials) as compute:
+        #     res = compute.instances().start(project='data-campus-393820', zone='us-central1-a', instance='forms-etl-test').execute()
+        #     print(res)
+        # gsheets_service = build('sheets', 'v4', credentials=credentials)
 
-        # mysql_datasource = MySQLDataSource(os.environ['DB_HOST'],
-        #                                 os.environ['DB_USER'],
-        #                                 os.environ['DB_PASSWORD'],
-        #                                 os.environ['DB_DATABASE'])
+        GOOGLE_SHEETS_CONFIG = json.loads(os.environ['GOOGLE_SHEETS_CONFIG'])
+        sheet_id = GOOGLE_SHEETS_CONFIG['google_sheets_files_metadata'][0]['id']
+        
+        with build('sheets', 'v4', credentials=credentials) as gsheets_service:
+            page_titles = [(page['properties']['sheetId'], page['properties']['title'])
+                            for page
+                            in gsheets_service.spreadsheets()
+                            .get(spreadsheetId=sheet_id)
+                            .execute()['sheets']]
+            
+            print(page_titles)
 
-        # extractor = GoogleSheetsExtractor(mysql_datasource, gsheets_service)
+            # mysql_datasource = MySQLDataSource(os.environ['DB_HOST'],
+            #                                 os.environ['DB_USER'],
+            #                                 os.environ['DB_PASSWORD'],
+            #                                 os.environ['DB_DATABASE'])
 
-        # google_sheets_file_batch = GoogleSheetsFileBatch(mysql_datasource, gsheets_service)    
+            # extractor = GoogleSheetsExtractor(mysql_datasource, gsheets_service)
 
-        # for google_sheets_file in google_sheets_file_batch.google_sheets_files:
-        #     extractor.execute(google_sheets_file)
+            # google_sheets_file_batch = GoogleSheetsFileBatch(mysql_datasource, gsheets_service)    
 
-    # gsheets_service.close()
+            # for google_sheets_file in google_sheets_file_batch.google_sheets_files:
+            #     extractor.execute(google_sheets_file)
+
+        # gsheets_service.close()
+    except Exception as e:
+        logging.error(e)
 
     end = dt.now()
     logging.info(f'main - Execution finished at {end}.')
