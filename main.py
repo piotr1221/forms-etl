@@ -1,6 +1,7 @@
 import os
 import logging
 from dotenv import load_dotenv
+import json
 
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
@@ -13,7 +14,6 @@ from datasource.mysql import MySQLDataSource
 
 load_dotenv()
 
-# @functions_framework.cloud_event
 def main() -> None:
     start = dt.now()
 
@@ -34,12 +34,15 @@ def main() -> None:
     #     res = compute.instances().start(project='data-campus-393820', zone='us-central1-a', instance='forms-etl-test').execute()
     #     print(res)
     # gsheets_service = build('sheets', 'v4', credentials=credentials)
+
+    GOOGLE_SHEETS_CONFIG = json.loads(os.environ['GOOGLE_SHEETS_CONFIG'])
+    sheet_id = GOOGLE_SHEETS_CONFIG['GOOGLE_SHEETS_CONFIG'][0][id]
     
     with build('sheets', 'v4', credentials=credentials) as gsheets_service:
         page_titles = [(page['properties']['sheetId'], page['properties']['title'])
                         for page
                         in gsheets_service.spreadsheets()
-                        .get(spreadsheetId='1BMAOUHTQfzaOl9xJfzpa0mn13Yaq4w2Zsp1oXEOh-4k')
+                        .get(spreadsheetId=sheet_id)
                         .execute()['sheets']]
         
         print(page_titles)
