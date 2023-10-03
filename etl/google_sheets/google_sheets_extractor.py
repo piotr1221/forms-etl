@@ -104,7 +104,7 @@ class GoogleSheetsExtractor():
         new_cols = [pl.lit(value).alias(column)
                     for column, value
                     in zip(google_sheets_file.get_custom_columns(),
-                            page_title_page_link_and_wordpress_link, strict=True)]
+                            page_title_page_link_and_wordpress_link)]
 
         df = (pl.DataFrame(data, schema=schema)
                 .with_columns([
