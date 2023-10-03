@@ -48,7 +48,9 @@ class _GoogleSheetsPageListBuilder():
                         for page
                         in self.service.spreadsheets()
                         .get(spreadsheetId=self.google_sheets_file_id)
-                        .execute()['sheets']]
+                        .execute()['sheets']
+                        if not (self.google_sheets_file_id == '1VEiE0BghMZY92EpOZ1AriFRZB3_ECcPE_EVEwzkCevs'
+                                and page['properties']['title'] == 'Hoja 2')]
         
         for page_id, page_title in page_titles:
             mode = Mode.INCREMENTAL if page_title in self.pages_in_db else Mode.HISTORICAL
@@ -75,20 +77,16 @@ class GoogleSheetsFileBuilder():
         self.google_sheets_file.id = id
         return self
     
-    def questions(self, questions: int):
-        self.google_sheets_file.questions = questions
-        return self
-    
-    def shared_existing_columns(self, shared_existing_columns: list[str]):
-        self.google_sheets_file.shared_existing_columns = shared_existing_columns
-        return self
-    
-    def shared_new_columns(self, shared_new_columns: list[str]):
-        self.google_sheets_file.shared_new_columns = shared_new_columns
+    def columns(self, columns: list[str]):
+        self.google_sheets_file.columns = columns
         return self
     
     def db_table(self, db_table: str):
         self.google_sheets_file.db_table = db_table
+        return self
+    
+    def wordpress_link(self, wordpress_link: str):
+        self.google_sheets_file.wordpress_link = wordpress_link
         return self
     
     def google_sheets_pages(self, service: Resource, range: str, pages_in_db: list[str],
@@ -105,22 +103,31 @@ class GoogleSheetsFileBuilder():
     
     def build(self):
         return self.google_sheets_file
+
         
 
 class GoogleSheetsFile():
     
     def __init__(self, id: str=None,
-                 questions: int=None,
                  google_sheets_pages: list[GoogleSheetsPage]=None,
                  db_table: str=None,
-                 shared_existing_columns: list[str]=None,
-                 shared_new_columns: list[str]=None) -> None:
+                 columns: list[str]=None,
+                 wordpress_link: str=None) -> None:
         self.id = id
-        self.questions = questions
         self.google_sheets_pages = google_sheets_pages
         self.db_table = db_table
-        self.shared_existing_columns = shared_existing_columns
-        self.shared_new_columns = shared_new_columns
+        self.columns = columns
+        self.wordpress_link = wordpress_link
+
+    def get_google_sheets_columns(self) -> list[str]:
+        """Returns columns found in original google sheets.
+        Excludes tab name, google sheets link and wordpress link"""
+        return self.columns[1:-3]
+    
+    def get_custom_columns(self) -> list[str]:
+        """Returns only custom columns not found in original google sheets.
+        These columns are tab name, google sheets link and wordpress link"""
+        return self.columns[-3:]
 
     @classmethod
     def builder(cls) -> GoogleSheetsFileBuilder:
@@ -133,35 +140,48 @@ class GoogleSheetsFileBatch():
 
     def __init__(self, datasource: MySQLDataSource, service: Resource):
         self.datasource = datasource
-        self.google_sheets_files = []
+        self.google_sheets_files: list[GoogleSheetsFile] = []
         
-        shared_metadata = self.GOOGLE_SHEETS_CONFIG['google_sheets_shared_metadata']
-
         with self.datasource as conn:
             for google_sheets_file_metadata in self.GOOGLE_SHEETS_CONFIG['google_sheets_files_metadata']:
-                pages_in_db = [row[0]
-                               for row
-                               in conn.execute(self.query(google_sheets_file_metadata['db_table']))
-                                    .fetchall()]
+                pages_in_db = \
+                    [row[0]
+                    for row
+                    in conn.execute(
+                        self.pages_in_db_query(google_sheets_file_metadata['db_table']))
+                        .fetchall()]
+                
+                columns = \
+                    [row[0]
+                    for row
+                    in conn.execute(
+                        self.columns_from_table_query(
+                            self.datasource._DB, google_sheets_file_metadata['db_table']))
+                        .fetchall()]    
                 
                 filter_values = FilterByLastRecordedValueStrategy.get_filter_value(
                     conn, google_sheets_file_metadata['db_table']
                 )
-
                 self.google_sheets_files.append(
                     GoogleSheetsFile.builder()
                         .id(google_sheets_file_metadata['id'])
-                        .questions(google_sheets_file_metadata['questions'])
-                        .shared_existing_columns(shared_metadata['shared_existing_columns'])
-                        .shared_new_columns(shared_metadata['shared_new_columns'])
                         .google_sheets_pages(
                             service,
                             google_sheets_file_metadata['range'],
                             pages_in_db,
                             filter_values)
                         .db_table(google_sheets_file_metadata['db_table'])
+                        .columns(columns)
+                        .wordpress_link(google_sheets_file_metadata['wp_link'])
                         .build()
                 )
                 
-    def query(self, db_table: str):
-        return f"SELECT DISTINCT pagina FROM {db_table}"
+    def pages_in_db_query(self, db_table: str):
+        return f"SELECT DISTINCT pestania FROM {db_table}"
+    
+    def columns_from_table_query(self, database:str, db_table: str):
+        return f"""SELECT `COLUMN_NAME` 
+                FROM `INFORMATION_SCHEMA`.`COLUMNS` 
+                WHERE `TABLE_SCHEMA`='{database}' 
+                AND `TABLE_NAME`='{db_table}';
+                """

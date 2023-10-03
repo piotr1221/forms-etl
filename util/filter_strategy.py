@@ -33,19 +33,19 @@ class FilterByLastRecordedValueStrategy(FilterStrategy):
         return \
     f"""SELECT
         t1.ultima_fecha,
-        t1.pagina,
+        t1.pestania,
         t2.correo
     FROM (
         SELECT
             MAX(marca_temporal) AS ultima_fecha,
-            pagina
+            pestania
         FROM
             {db_table}
         GROUP BY
-            pagina
+            pestania
     ) AS t1
     INNER JOIN
         {db_table} AS t2
-        ON t2.pagina = t1.pagina
+        ON t2.pestania = t1.pestania
         AND t2.marca_temporal = t1.ultima_fecha;
     """

@@ -93,7 +93,7 @@ class DateTimeFilterByLastRecordedValue(DateTimeFilter):
     def _custom_filter(self, df: pl.DataFrame, filter_value: LastRecordedValue):
         return df.filter(
             pl.col('marca_temporal').ge(filter_value.datetime_to_filter_by)
-            .and_(pl.col('pagina').eq(filter_value.page))
+            .and_(pl.col('pestania').eq(filter_value.page))
             .and_(pl.col('correo').is_in(filter_value.emails).not_())
         )
     
