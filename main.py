@@ -19,8 +19,8 @@ def main() -> None:
 
     logging.basicConfig(level=logging.INFO,
                         format='%(levelname)s - %(asctime)s - %(message)s')
-    # client = google.cloud.logging.Client()
-    # client.setup_logging()
+    client = google.cloud.logging.Client()
+    client.setup_logging()
 
     logging.info(f'main - Execution started at {start}')
 

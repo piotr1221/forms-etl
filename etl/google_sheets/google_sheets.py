@@ -32,12 +32,13 @@ class GoogleSheetsPage():
 class _GoogleSheetsPageListBuilder():
 
     def __init__(self, service: Resource, google_sheets_file_id: str, pages_in_db: list[str],
-                 filter_values: list[FilterValue]):
+                 filter_values: list[FilterValue], excluded_pages: list[str]):
         self.google_sheets_pages = []
         self.service = service
         self.google_sheets_file_id = google_sheets_file_id
         self.pages_in_db = pages_in_db
         self.filter_values = filter_values
+        self.excluded_pages = excluded_pages
 
     def range(self, range: str):
         self._range = range
@@ -49,8 +50,7 @@ class _GoogleSheetsPageListBuilder():
                         in self.service.spreadsheets()
                         .get(spreadsheetId=self.google_sheets_file_id)
                         .execute()['sheets']
-                        if not (self.google_sheets_file_id == '1VEiE0BghMZY92EpOZ1AriFRZB3_ECcPE_EVEwzkCevs'
-                                and page['properties']['title'] == 'Hoja 2')]
+                        if page['properties']['title'] not in self.excluded_pages]
         
         for page_id, page_title in page_titles:
             mode = Mode.INCREMENTAL if page_title in self.pages_in_db else Mode.HISTORICAL
@@ -89,14 +89,23 @@ class GoogleSheetsFileBuilder():
         self.google_sheets_file.wordpress_link = wordpress_link
         return self
     
+    def seminar_title(self, seminar_title: str):
+        self.google_sheets_file.seminar_title = seminar_title
+        return self
+    
+    def excluded_columns(self, excluded_columns: str):
+        self.google_sheets_file.excluded_columns = excluded_columns
+        return self
+    
     def google_sheets_pages(self, service: Resource, range: str, pages_in_db: list[str],
-                            filter_values: list[FilterValue]):
+                            filter_values: list[FilterValue], excluded_pages: list[str]):
         self.google_sheets_file.google_sheets_pages = \
             (_GoogleSheetsPageListBuilder(
                     service,
                     self.google_sheets_file.id,
                     pages_in_db,
-                    filter_values
+                    filter_values,
+                    excluded_pages
                 ).range(range)
                 .build())
         return self
@@ -112,22 +121,28 @@ class GoogleSheetsFile():
                  google_sheets_pages: list[GoogleSheetsPage]=None,
                  db_table: str=None,
                  columns: list[str]=None,
-                 wordpress_link: str=None) -> None:
+                 wordpress_link: str=None,
+                 seminar_title: str=None,
+                 excluded_columns: list[str]=None) -> None:
         self.id = id
         self.google_sheets_pages = google_sheets_pages
         self.db_table = db_table
         self.columns = columns
         self.wordpress_link = wordpress_link
+        self.seminar_title = seminar_title
+        self.excluded_columns = excluded_columns
 
     def get_google_sheets_columns(self) -> list[str]:
         """Returns columns found in original google sheets.
-        Excludes tab name, google sheets link and wordpress link"""
-        return self.columns[1:-3]
+        Excludes database Primary Key, tab name, google sheets link, wordpress link,
+        seminar name and status"""
+        return self.columns[1:-5]
     
     def get_custom_columns(self) -> list[str]:
-        """Returns only custom columns not found in original google sheets.
-        These columns are tab name, google sheets link and wordpress link"""
-        return self.columns[-3:]
+        """Returns only custom columns not found in original google sheets
+        nor database Primary Key. These columns are tab name, google sheets link,
+        wordpress link, seminar name and status"""
+        return self.columns[-5:]
 
     @classmethod
     def builder(cls) -> GoogleSheetsFileBuilder:
@@ -162,6 +177,11 @@ class GoogleSheetsFileBatch():
                 filter_values = FilterByLastRecordedValueStrategy.get_filter_value(
                     conn, google_sheets_file_metadata['db_table']
                 )
+
+                excluded_columns = (google_sheets_file_metadata.get('excluded_columns')
+                                    if google_sheets_file_metadata.get('excluded_columns') is not None
+                                    else self.GOOGLE_SHEETS_CONFIG['common_metadata']['excluded_columns'])
+
                 self.google_sheets_files.append(
                     GoogleSheetsFile.builder()
                         .id(google_sheets_file_metadata['id'])
@@ -169,10 +189,13 @@ class GoogleSheetsFileBatch():
                             service,
                             google_sheets_file_metadata['range'],
                             pages_in_db,
-                            filter_values)
+                            filter_values,
+                            google_sheets_file_metadata.get('excluded', []))
                         .db_table(google_sheets_file_metadata['db_table'])
                         .columns(columns)
                         .wordpress_link(google_sheets_file_metadata['wp_link'])
+                        .seminar_title(google_sheets_file_metadata['seminar'])
+                        .excluded_columns(excluded_columns)
                         .build()
                 )
                 

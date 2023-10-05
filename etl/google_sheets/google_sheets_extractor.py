@@ -47,9 +47,16 @@ class GoogleSheetsExtractor():
                             f" Page {i + 1}/{len(google_sheets_file.google_sheets_pages)}"))
 
             values = self._get_excel_values(google_sheets_file.id, google_sheets_page)
+
+            if len(values) == 0:
+                continue
+
+            if len(values[0]) == 0:
+                continue
+
             df = self._generate_dataframe(values, google_sheets_file, google_sheets_page)
             df = self.datetime_filter.filter(df, google_sheets_page.filter_value, google_sheets_page.mode)
-            
+
             if not df.is_empty():
                 if file_df is None:
                     file_df = df
@@ -90,21 +97,25 @@ class GoogleSheetsExtractor():
     def _generate_dataframe(self, values: list[list[str]],
                             google_sheets_file: GoogleSheetsFile,
                             google_sheets_page: GoogleSheetsPage) -> pl.DataFrame:
-        columnar_values = [columnar_value[1:] for columnar_value in values]
+        columnar_values = [columnar_value[1:]
+                           for columnar_value in values
+                           if columnar_value[0] not in google_sheets_file.excluded_columns]
 
         data = {column: columnar_values[idx]
                 for (idx, column) in enumerate(google_sheets_file.get_google_sheets_columns())}
         
         schema =  {c: pl.Utf8 for c in google_sheets_file.get_google_sheets_columns()}
 
-        page_title_page_link_and_wordpress_link = [
-            *google_sheets_page.get_title_and_link(),
-            google_sheets_file.wordpress_link
+        new_cols_values = [
+            google_sheets_page.title,
+            google_sheets_page.link,
+            google_sheets_file.wordpress_link,
+            google_sheets_file.seminar_title
         ]
         new_cols = [pl.lit(value).alias(column)
                     for column, value
                     in zip(google_sheets_file.get_custom_columns(),
-                            page_title_page_link_and_wordpress_link)]
+                            new_cols_values)]
 
         df = (pl.DataFrame(data, schema=schema)
                 .with_columns([
@@ -120,6 +131,11 @@ class GoogleSheetsExtractor():
                     pl.col(f'{google_sheets_file.get_google_sheets_columns()[5]}').str.replace_all(' ', ''),
                     pl.col(f'{google_sheets_file.get_google_sheets_columns()[6]}').str.replace_all(' ', ''),
                     *new_cols
-                ]))
+                ])
+                .select(
+                    '*',
+                    estado=pl.when(pl.col('puntuacion') >= 10.5)
+                        .then(pl.lit('APROBADO'))
+                        .otherwise('DESAPROBADO')))
         return df
     
