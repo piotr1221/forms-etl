@@ -26,7 +26,7 @@ def main() -> None:
 
     try:
 
-        CREDENTIALS_FILE = 'educared-datos-forms-etl-sa.json'
+        CREDENTIALS_FILE = os.path.join(os.getcwd(), 'educared-datos-forms-etl-sa.json')
 
         credentials = service_account.Credentials.from_service_account_file(
             CREDENTIALS_FILE)
